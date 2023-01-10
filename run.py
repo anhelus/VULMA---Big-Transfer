@@ -5,12 +5,21 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 from tensorflow import keras
 import tensorflow_hub as hub
-from pdb import set_trace
 import tensorflow_datasets as tfds
 
 tfds.disable_progress_bar()
 
-# train_ds, validation_ds = tfds.load(
+from pdb import set_trace
+
+from tensorflow.python.ops.numpy_ops import np_config
+np_config.enable_numpy_behavior()
+
+SEEDS = 42
+
+np.random.seed(SEEDS)
+tf.random.set_seed(SEEDS)
+
+# train_ds, val_ds = tfds.load(
 #     "tf_flowers",
 #     split=["train[:85%]", "train[85%:]"],
 #     as_supervised=True,
@@ -18,18 +27,13 @@ tfds.disable_progress_bar()
 
 # set_trace()
 
-SEEDS = 42
-
-np.random.seed(SEEDS)
-tf.random.set_seed(SEEDS)
-
 # TODO load dataset
 
 # Define hyperparameters
-RESIZE_TO = 384
-CROP_TO = 24
-BATCH_SIZE = 16
-STEPS_PER_EPOCH = 10
+RESIZE_TO = 224
+CROP_TO = 48
+BATCH_SIZE = 8
+STEPS_PER_EPOCH = 32
 AUTO = tf.data.AUTOTUNE # TODO check what it does
 NUM_CLASSES = 7
 SCHEDULE_LENGTH = (500) # train on lower resolution images
@@ -47,26 +51,24 @@ train_ds = keras.utils.image_dataset_from_directory(
   'dataset',
   validation_split=0.2,
   subset="training",
-  seed=123)
-#   image_size=(RESIZE_TO, RESIZE_TO),
-#   batch_size=BATCH_SIZE)
+  batch_size=None,
+  seed=42)
 
 val_ds = tf.keras.utils.image_dataset_from_directory(
   'dataset',
   validation_split=0.2,
   subset="validation",
-  seed=123)
-#   image_size=(RESIZE_TO, RESIZE_TO),
-#   batch_size=BATCH_SIZE)
-
-set_trace()
+  batch_size=None,
+  seed=42)
 
 plt.figure(figsize=(10, 10))
 for i, (image, label) in enumerate(train_ds.take(9)):
     ax = plt.subplot(3, 3, i + 1)
-    plt.imshow(image)
+    plt.imshow(image.astype('uint8'))
     plt.title(int(label))
     plt.axis("off")
+
+# set_trace()
 
 plt.show()
 
@@ -74,9 +76,8 @@ plt.show()
 @tf.function
 def preprocess_train(image, label):
     image = tf.image.random_flip_left_right(image)
-    # set_trace()
     image = tf.image.resize(image, (RESIZE_TO, RESIZE_TO))
-    image = tf.image.random_crop(image, (CROP_TO, CROP_TO, 3))
+    # image = tf.image.random_crop(image, (CROP_TO, CROP_TO, 3))
     image = image / 255.0
     return (image, label)
 
@@ -121,7 +122,8 @@ pipeline_validation = (
 
 
 # load pretrained tf-hub model into a keraslayer
-bit_model_url = 'https://tfhub.dev/google/bit/m-r50x1/1'
+bit_model_url = "https://tfhub.dev/google/bit/m-r50x1/1"
+
 bit_module = hub.KerasLayer(bit_model_url)
 
 class MyBiTModel(keras.Model):
@@ -138,7 +140,8 @@ class MyBiTModel(keras.Model):
 
 model = MyBiTModel(num_classes=NUM_CLASSES, module=bit_module)
 
-learning_rate = 0.003 * BATCH_SIZE / 512
+# learning_rate = 0.003 * BATCH_SIZE / 512
+learning_rate = 0.1
 
 # Decay learning rate by a factor of 10 at SCHEDULE_BOUNDARIES.
 lr_schedule = keras.optimizers.schedules.PiecewiseConstantDecay(
@@ -150,15 +153,18 @@ lr_schedule = keras.optimizers.schedules.PiecewiseConstantDecay(
         learning_rate * 0.001,
     ],
 )
-optimizer = keras.optimizers.SGD(learning_rate=lr_schedule, momentum=0.9)
 
-loss_fn = keras.losses.CategoricalCrossentropy()
+# optimizer = keras.optimizers.SGD(learning_rate=lr_schedule, momentum=0.9)
+optimizer = keras.optimizers.Adam()
+# optimizer = keras.optimizers.SGD()
+
+loss_fn = keras.losses.SparseCategoricalCrossentropy(from_logits=True)
 
 model.compile(optimizer=optimizer, loss=loss_fn, metrics=["accuracy"])
 
 train_callbacks = [
     keras.callbacks.EarlyStopping(
-        monitor="val_accuracy", patience=2, restore_best_weights=True
+        monitor="val_accuracy", patience=10, restore_best_weights=True
     )
 ]
 
