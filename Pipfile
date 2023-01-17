@@ -10,6 +10,7 @@ matplotlib = "*"
 tensorflow = "*"
 tensorflow-hub = "*"
 tensorflow-datasets = "*"
+jupyterlab = "*"
 
 [dev-packages]
 

@@ -33,9 +33,9 @@ tf.random.set_seed(SEEDS)
 RESIZE_TO = 224
 CROP_TO = 48
 BATCH_SIZE = 8
-STEPS_PER_EPOCH = 32
+STEPS_PER_EPOCH = 16
 AUTO = tf.data.AUTOTUNE # TODO check what it does
-NUM_CLASSES = 7
+NUM_CLASSES = 5
 SCHEDULE_LENGTH = (500) # train on lower resolution images
 SCHEDULE_BOUNDARIES = [
     200,
@@ -48,14 +48,14 @@ SCHEDULE_BOUNDARIES = [
 SCHEDULE_LENGTH = SCHEDULE_LENGTH * 512 / BATCH_SIZE
 
 train_ds = keras.utils.image_dataset_from_directory(
-  'dataset',
+  'data_vulma_c',
   validation_split=0.2,
   subset="training",
   batch_size=None,
   seed=42)
 
 val_ds = tf.keras.utils.image_dataset_from_directory(
-  'dataset',
+  'data_vulma_c',
   validation_split=0.2,
   subset="validation",
   batch_size=None,
